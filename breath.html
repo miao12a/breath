@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="先呼吸">
+<meta name="theme-color" content="#0b1220">
+<title>先呼吸一下</title>
+<style>
+  :root{
+    --bg:#0b1220;
+    --bg2:#121c2e;
+    --ink:#eaf1ff;
+    --dim:#8ba0c4;
+    --accent:#5fd4c4;
+    --accent2:#7aa8ff;
+    --warn:#ffb27a;
+    --danger:#ff8a8a;
+    --card:rgba(255,255,255,.055);
+    --line:rgba(255,255,255,.10);
+    --pad: max(20px, env(safe-area-inset-left));
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    margin:0;
+    background:
+      radial-gradient(120% 80% at 50% 0%, #16233a 0%, var(--bg) 55%, #070c15 100%);
+    color:var(--ink);
+    font:400 16px/1.55 -apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue","Microsoft YaHei",sans-serif;
+    display:flex; flex-direction:column;
+    min-height:100dvh;
+    overflow-x:hidden;
+    transition:background .9s ease;
+  }
+  body.phase-inhale{background:radial-gradient(120% 85% at 50% 4%, #1d3b48 0%, #0d1a26 58%, #070c15 100%)}
+  body.phase-hold  {background:radial-gradient(120% 85% at 50% 4%, #232f55 0%, #101728 58%, #070c15 100%)}
+  body.phase-exhale{background:radial-gradient(120% 85% at 50% 4%, #14243d 0%, #0a1220 58%, #070c15 100%)}
+
+  .screen{
+    display:none; flex:1; flex-direction:column;
+    padding:calc(env(safe-area-inset-top) + 22px) var(--pad) calc(env(safe-area-inset-bottom) + 22px);
+    max-width:560px; width:100%; margin:0 auto;
+  }
+  .screen.on{display:flex}
+
+  /* ---------- 通用 ---------- */
+  h1{font-size:26px; line-height:1.3; margin:0 0 10px; font-weight:600; letter-spacing:.2px}
+  h2{font-size:19px; margin:0 0 8px; font-weight:600}
+  p{margin:0 0 14px; color:var(--dim)}
+  .spacer{flex:1}
+  .center{text-align:center}
+  button{font-family:inherit; font-size:16px; border:0; cursor:pointer}
+
+  .btn{
+    display:block; width:100%; padding:17px 20px; border-radius:16px;
+    background:linear-gradient(135deg,var(--accent) 0%,var(--accent2) 100%);
+    color:#06121f; font-weight:700; font-size:17px;
+    transition:transform .12s ease, filter .2s ease;
+    box-shadow:0 10px 30px -12px rgba(95,212,196,.6);
+  }
+  .btn:active{transform:scale(.975); filter:brightness(1.06)}
+  .btn.ghost{
+    background:transparent; color:var(--ink);
+    border:1px solid var(--line); box-shadow:none; font-weight:600;
+  }
+  .btn.ghost:active{background:rgba(255,255,255,.06)}
+  .btn.quiet{
+    background:transparent; color:var(--dim); box-shadow:none;
+    font-weight:500; font-size:15px; padding:14px;
+  }
+  .btn.quiet:active{color:var(--ink)}
+
+  .card{
+    background:var(--card); border:1px solid var(--line);
+    border-radius:18px; padding:16px 18px; margin-bottom:12px;
+  }
+  .kicker{
+    font-size:12px; letter-spacing:2.4px; text-transform:uppercase;
+    color:var(--dim); margin-bottom:12px;
+  }
+
+  /* ---------- 01 欢迎 ---------- */
+  .ringlogo{
+    width:76px;height:76px;border-radius:50%;
+    border:2px solid rgba(95,212,196,.55);
+    display:grid;place-items:center;margin-bottom:22px;
+    animation:breatheLogo 9s ease-in-out infinite;
+  }
+  .ringlogo i{width:44px;height:44px;border-radius:50%;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));opacity:.85}
+  @keyframes breatheLogo{
+    0%,30%{transform:scale(.86)} 42%,72%{transform:scale(1.06)} 100%{transform:scale(.86)}
+  }
+
+  /* ---------- 02 呼吸 ---------- */
+  .breathWrap{
+    flex:1; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:26px; min-height:0;
+    position:relative;
+  }
+  .circleBox{position:relative; width:min(74vw,300px); aspect-ratio:1}
+  .halo{
+    position:absolute; inset:-13%; border-radius:50%;
+    background:radial-gradient(circle,rgba(95,212,196,.30) 0%,rgba(95,212,196,0) 68%);
+    opacity:.5; transition:opacity .8s ease, transform 4s linear;
+  }
+  svg.prog{position:absolute; inset:0; width:100%; height:100%; transform:rotate(-90deg)}
+  svg.prog circle{fill:none; stroke-linecap:round}
+  .track{stroke:rgba(255,255,255,.09); stroke-width:5}
+  .bar{stroke:url(#g1); stroke-width:5; transition:stroke-dashoffset .25s linear}
+  .disc{
+    position:absolute; inset:12.5%; border-radius:50%;
+    background:radial-gradient(circle at 50% 35%, rgba(255,255,255,.16), rgba(255,255,255,.045) 60%, rgba(255,255,255,.02));
+    border:1px solid rgba(255,255,255,.13);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    transform:scale(.84);
+    transition:transform 1s cubic-bezier(.4,0,.5,1);
+    will-change:transform;
+  }
+  .phaseName{font-size:23px; font-weight:600; letter-spacing:3px}
+  .phaseNum{font-size:70px; font-weight:250; line-height:1; margin-top:4px;
+    font-variant-numeric:tabular-nums; letter-spacing:-2px}
+  .roundInfo{color:var(--dim); font-size:14px; letter-spacing:.6px}
+
+  /* ---------- 03 询问 ---------- */
+  .choice{display:flex; flex-direction:column; gap:11px; margin-top:8px}
+  .choice .btn.exit{
+    background:linear-gradient(135deg,#7ee0cf,#8fd6ff); color:#06121f;
+  }
+  .choice .btn.stay{
+    background:transparent; border:1px solid rgba(255,178,122,.45);
+    color:var(--warn); box-shadow:none; font-weight:600;
+  }
+  .choice .btn.stay:active{background:rgba(255,178,122,.09)}
+  .sub{font-size:13.5px; color:var(--dim); text-align:center; margin-top:9px}
+
+  /* ---------- 04 倒计时 ---------- */
+  .bigTime{
+    font-size:82px; font-weight:200; letter-spacing:-3px;
+    font-variant-numeric:tabular-nums; line-height:1; margin:6px 0 2px;
+  }
+  .doneBar{height:6px;border-radius:99px;background:rgba(255,255,255,.09);overflow:hidden;margin:20px 0 4px}
+  .doneBar i{display:block;height:100%;width:0;border-radius:99px;
+    background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .9s linear}
+  .pill{
+    display:inline-block; padding:7px 14px; border-radius:99px;
+    background:rgba(255,255,255,.06); border:1px solid var(--line);
+    font-size:13.5px; color:var(--dim); margin:0 5px 8px 0;
+  }
+
+  /* ---------- 设置面板 ---------- */
+  .row{display:flex; align-items:center; justify-content:space-between; gap:14px; padding:11px 0;
+    border-bottom:1px solid rgba(255,255,255,.055)}
+  .row:last-child{border-bottom:0}
+  .row label{color:var(--ink); font-size:15.5px}
+  .row .hint{display:block; color:var(--dim); font-size:12.5px; margin-top:3px; font-weight:400}
+  .stepper{display:flex; align-items:center; gap:2px; background:rgba(255,255,255,.055);
+    border:1px solid var(--line); border-radius:12px; overflow:hidden; flex:0 0 auto}
+  .stepper button{
+    width:42px; height:40px; background:transparent; color:var(--ink);
+    font-size:21px; line-height:1; display:grid; place-items:center;
+  }
+  .stepper button:active{background:rgba(255,255,255,.12)}
+  .stepper .val{min-width:52px; text-align:center; font-size:16px;
+    font-variant-numeric:tabular-nums; font-weight:600}
+  .stepper .val small{font-size:11.5px; color:var(--dim); font-weight:400; margin-left:2px}
+
+  input[type=text]{
+    width:100%; padding:12px 14px; border-radius:12px; font-size:15px;
+    background:rgba(0,0,0,.28); border:1px solid var(--line); color:var(--ink);
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  input[type=text]:focus{outline:none; border-color:rgba(95,212,196,.6)}
+  select{
+    padding:11px 14px; border-radius:12px; font-size:15px;
+    background:rgba(0,0,0,.28); border:1px solid var(--line); color:var(--ink); font-family:inherit;
+  }
+  .seg{display:flex; gap:6px; background:rgba(0,0,0,.25); padding:5px; border-radius:14px; margin-bottom:16px}
+  .seg button{
+    flex:1; padding:11px 6px; border-radius:10px; background:transparent;
+    color:var(--dim); font-size:14.5px; font-weight:600; transition:.18s;
+  }
+  .seg button.on{background:rgba(255,255,255,.11); color:var(--ink)}
+
+  /* ---------- 完成页 ---------- */
+  .statGrid{display:grid; grid-template-columns:1fr 1fr; gap:11px; margin:6px 0 18px}
+  .stat{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:15px 16px}
+  .stat b{display:block; font-size:29px; font-weight:600; line-height:1.15; font-variant-numeric:tabular-nums}
+  .stat span{color:var(--dim); font-size:13px}
+
+  .topbar{display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; min-height:34px}
+  .iconbtn{
+    background:transparent; color:var(--dim); font-size:14.5px; padding:8px 4px; font-weight:500;
+  }
+  .iconbtn:active{color:var(--ink)}
+  .progressDots{display:flex; gap:6px; align-items:center}
+  .progressDots i{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.16)}
+  .progressDots i.on{background:var(--accent); box-shadow:0 0 10px rgba(95,212,196,.7)}
+
+  .note{font-size:13px;color:var(--dim);background:rgba(255,255,255,.04);
+    border-left:2px solid rgba(95,212,196,.5); padding:11px 14px; border-radius:0 10px 10px 0; margin:0 0 16px}
+  .note.warn{border-left-color:rgba(255,178,122,.6)}
+  a{color:var(--accent)}
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:.01ms !important; transition-duration:.01ms !important}
+  }
+  @media (max-height: 700px){
+    .circleBox{width:min(64vw,236px)}
+    .phaseNum{font-size:58px}
+    .bigTime{font-size:66px}
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5fd4c4"/>
+      <stop offset="100%" stop-color="#7aa8ff"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+<!-- ================= 00 首次校准 ================= -->
+<section class="screen" id="s-calib">
+  <div class="spacer"></div>
+  <div class="kicker">开始之前</div>
+  <h1>先做一次校准</h1>
+  <p>为了让动画跟着你的呼吸走，请跟着下面这个节奏试一次。坐直，肩膀放松，用鼻子吸气。</p>
+  <div class="card center">
+    <div style="font-size:15px;color:var(--ink);line-height:2">
+      吸气 <b style="color:var(--accent)">4</b> 秒 → 屏住 <b style="color:var(--accent2)">4</b> 秒 → 呼气 <b style="color:var(--dim)">6</b> 秒
+    </div>
+    <p style="margin:10px 0 0;font-size:13.5px">这是偏温和的节奏，容易坚持。之后可以调。</p>
+  </div>
+  <div class="note">如果你有心脏、血压或呼吸系统疾病，或正处孕期，请先咨询医生再练习屏息类呼吸。</div>
+  <button class="btn" id="btnCalibStart">我开始，跟着做一次</button>
+  <button class="btn quiet" id="btnCalibSkip">跳过校准，直接进入</button>
+</section>
+
+<!-- ================= 01 欢迎 ================= -->
+<section class="screen" id="s-welcome">
+  <div class="topbar">
+    <span></span>
+    <button class="iconbtn" id="btnOpenSettings">设置</button>
+  </div>
+  <div class="spacer"></div>
+  <div class="ringlogo"><i></i></div>
+  <h1 id="welcomeTitle">先呼吸一下</h1>
+  <p id="welcomeSub">你刚刚打开了那个 App。在滑下去之前，给自己一分钟。</p>
+  <div class="card">
+    <div style="font-size:15px;line-height:1.9">
+      接下来是 <b id="welcomeRounds">2</b> 轮呼吸，大约 <b id="welcomeDur">30</b> 秒。
+    </div>
+  </div>
+  <button class="btn" id="btnStartBreath">开始</button>
+  <button class="btn quiet" id="btnSkipBreath">跳过，直接用</button>
+  <div class="sub" id="welcomeFoot">这一分钟是你自己留给自己的。</div>
+</section>
+
+<!-- ================= 02 呼吸 ================= -->
+<section class="screen" id="s-breath">
+  <div class="topbar">
+    <span class="roundInfo" id="roundLabel">第 1 轮 / 共 2 轮</span>
+    <button class="iconbtn" id="btnEndEarly">提前结束</button>
+  </div>
+  <div class="breathWrap">
+    <div class="circleBox">
+      <div class="halo" id="halo"></div>
+      <svg class="prog" viewBox="0 0 100 100">
+        <circle class="track" cx="50" cy="50" r="45"></circle>
+        <circle class="bar" id="bar" cx="50" cy="50" r="45"
+                stroke-dasharray="282.74" stroke-dashoffset="282.74"></circle>
+      </svg>
+      <div class="disc" id="disc">
+        <div class="phaseName" id="phaseName">准备</div>
+        <div class="phaseNum" id="phaseNum">3</div>
+      </div>
+    </div>
+    <div class="roundInfo" id="breathHint">跟着圆圈的大小呼吸</div>
+  </div>
+</section>
+
+<!-- ================= 03 询问 ================= -->
+<section class="screen" id="s-ask">
+  <div class="spacer"></div>
+  <div class="kicker" id="askKicker">呼吸完成</div>
+  <h1 id="askTitle">现在还想用它吗？</h1>
+  <p id="askSub">刚才那阵"必须马上打开"的冲动，可能已经过去了一点。</p>
+  <div class="choice">
+    <button class="btn exit" id="btnExit">不想了，关掉它</button>
+    <button class="btn stay" id="btnStay">还是想用一会儿</button>
+  </div>
+  <div class="sub" id="askNote"></div>
+  <div class="spacer"></div>
+  <button class="btn quiet" id="btnOneMore">再来一轮呼吸</button>
+</section>
+
+<!-- ================= 04 倒计时 ================= -->
+<section class="screen" id="s-count">
+  <div class="topbar">
+    <span class="kicker" style="margin:0">使用倒计时</span>
+    <button class="iconbtn" id="btnBackHome">回到首页</button>
+  </div>
+  <div class="spacer"></div>
+  <div class="center">
+    <div class="bigTime" id="countTime">10:00</div>
+    <p id="countSub" style="margin-top:12px">到点我会再叫你一次。</p>
+  </div>
+  <div class="spacer"></div>
+  <div class="doneBar"><i id="countBar"></i></div>
+  <div class="sub" id="countFoot"></div>
+  <button class="btn ghost" id="btnOpenTarget" style="margin-top:14px">打开 App</button>
+  <button class="btn quiet" id="btnCountAgain">算了，现在就停</button>
+</section>
+
+<!-- ================= 05 结束 ================= -->
+<section class="screen" id="s-exit">
+  <div class="spacer"></div>
+  <div class="center">
+    <div class="ringlogo" style="margin:0 auto 24px"><i></i></div>
+    <h1>很好。</h1>
+    <p id="exitSub">你刚才赢了一次。这一下就是全部的意义。</p>
+  </div>
+  <div class="statGrid">
+    <div class="stat"><b id="statExit">1</b><span>次选择放手</span></div>
+    <div class="stat"><b id="statSession">1</b><span>次完成呼吸</span></div>
+  </div>
+  <div class="note" id="exitTip">可以直接回桌面了。如果这个页面是自己弹出来的，划掉它就行。</div>
+  <button class="btn" id="btnExitHome">回桌面</button>
+  <button class="btn quiet" id="btnExitSettings">调整设置</button>
+</section>
+
+<!-- ================= 06 设置 ================= -->
+<section class="screen" id="s-settings">
+  <div class="topbar">
+    <button class="iconbtn" id="btnSettingsBack">‹ 返回</button>
+    <span class="kicker" style="margin:0">设置</span>
+    <span></span>
+  </div>
+
+  <div class="seg" id="segPreset">
+    <button data-preset="gentle">温和 4-4-6</button>
+    <button data-preset="standard">标准 4-7-8</button>
+    <button data-preset="box">箱式 4-4-4-4</button>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <label>吸气时长<span class="hint">用鼻子，缓慢吸满</span></label>
+      <div class="stepper" data-key="inhale" data-min="2" data-max="10">
+        <button data-d="-1">−</button><span class="val">4<small>秒</small></span><button data-d="1">+</button>
+      </div>
+    </div>
+    <div class="row">
+      <label>屏息时长<span class="hint">不舒服就调短或设 0</span></label>
+      <div class="stepper" data-key="hold" data-min="0" data-max="15">
+        <button data-d="-1">−</button><span class="val">4<small>秒</small></span><button data-d="1">+</button>
+      </div>
+    </div>
+    <div class="row">
+      <label>呼气时长<span class="hint">用嘴，比吸气慢</span></label>
+      <div class="stepper" data-key="exhale" data-min="3" data-max="16">
+        <button data-d="-1">−</button><span class="val">6<small>秒</small></span><button data-d="1">+</button>
+      </div>
+    </div>
+    <div class="row">
+      <label>呼吸轮数<span class="hint">越多拦截感越强</span></label>
+      <div class="stepper" data-key="rounds" data-min="1" data-max="10">
+        <button data-d="-1">−</button><span class="val">2<small>轮</small></span><button data-d="1">+</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <label>继续使用时长<span class="hint">到点后回来再呼吸一次</span></label>
+      <div class="stepper" data-key="minutes" data-min="1" data-max="60">
+        <button data-d="-1">−</button><span class="val">10<small>分</small></span><button data-d="1">+</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <label>目标 App 的 URL Scheme<span class="hint">选填。填了才能一键跳回去</span></label>
+    </div>
+    <input type="text" id="inpScheme" placeholder="snssdk1128://  （抖音）" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+      <span class="pill" data-fill="snssdk1128://">抖音</span>
+      <span class="pill" data-fill="xhsdiscover://">小红书</span>
+      <span class="pill" data-fill="bilibili://">B站</span>
+      <span class="pill" data-fill="weibo://">微博</span>
+      <span class="pill" data-fill="zhihu://">知乎</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <label>完成呼吸后自动跳回 App<span class="hint">关闭则停在询问页</span></label>
+      <div class="stepper" style="border:0;background:transparent">
+        <button id="btnToggleAuto" style="width:64px">关</button>
+      </div>
+    </div>
+    <div class="row">
+      <label>震动 / 提示音<span class="hint">切换呼吸阶段时提示</span></label>
+      <div class="stepper" style="border:0;background:transparent">
+        <button id="btnToggleSound" style="width:64px">开</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row" style="border:0">
+      <label>URL 参数<span class="hint">让快捷指令每次进入时覆盖设置</span></label>
+    </div>
+    <input type="text" id="inpExample" readonly
+           value="?minutes=5&rounds=3&inhale=4&hold=7&exhale=8&auto=0&rounds=3">
+    <p style="font-size:12.5px;margin:12px 0 0">
+      示例：<code style="color:var(--accent)">breath.html?minutes=5&amp;rounds=3</code><br>
+      支持 minutes / rounds / inhale / hold / exhale / auto / scheme / app
+    </p>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <label>累计数据</label>
+      <button class="iconbtn" id="btnResetStats" style="color:var(--danger)">清零</button>
+    </div>
+    <div class="statGrid" style="margin:12px 0 0">
+      <div class="stat"><b id="statAllSession">0</b><span>累计完成呼吸</span></div>
+      <div class="stat"><b id="statAllExit">0</b><span>累计选择放手</span></div>
+    </div>
+  </div>
+
+  <button class="btn" id="btnSaveSettings" style="margin-bottom:10px">保存</button>
+  <div class="note warn" style="margin-top:6px">
+    这个页面本身没有强制力，它是给你一个犹豫的窗口。真正拦得住你的是
+    <b>设置 → 屏幕使用时间 → App 限额</b>，以及快捷指令自动化。
+  </div>
+  <div class="spacer"></div>
+</section>
+
+<script>
+"use strict";
+(function () {
+
+/* =========================================================
+   配置
+   ========================================================= */
+const PRESETS = {
+  gentle:   { inhale: 4, hold: 4, exhale: 6 },
+  standard: { inhale: 4, hold: 7, exhale: 8 },
+  box:      { inhale: 4, hold: 4, exhale: 4, hold2: 4 }
+};
+const DEFAULTS = {
+  inhale: 4, hold: 4, exhale: 6, rounds: 2,
+  minutes: 10, scheme: "", auto: false, sound: true,
+  calibrated: false
+};
+const KEY_CFG = "breath.cfg.v1";
+const KEY_STAT = "breath.stat.v1";
+const KEY_NEXT = "breath.nextAt.v1";
+
+/* =========================================================
+   存储
+   ========================================================= */
+const store = {
+  get(k, fb) {
+    try { const v = localStorage.getItem(k); return v === null ? fb : JSON.parse(v); }
+    catch (e) { return fb; }
+  },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+  del(k) { try { localStorage.removeItem(k); } catch (e) {} }
+};
+
+let cfg = Object.assign({}, DEFAULTS, store.get(KEY_CFG, {}));
+let stat = Object.assign({ sessions: 0, exits: 0, continues: 0 }, store.get(KEY_STAT, {}));
+
+function saveCfg() { store.set(KEY_CFG, cfg); }
+function saveStat() { store.set(KEY_STAT, stat); }
+
+/* =========================================================
+   URL 参数覆盖
+   ========================================================= */
+const APP_SCHEMES = {
+  douyin: "snssdk1128://", tiktok: "snssdk1128://",
+  xhs: "xhsdiscover://", redbook: "xhsdiscover://",
+  bilibili: "bilibili://", weibo: "weibo://", zhihu: "zhihu://"
+};
+
+function applyUrlParams() {
+  let q;
+  try { q = new URLSearchParams(location.search); } catch (e) { return false; }
+  let touched = false;
+  const num = (name, key, min, max) => {
+    if (!q.has(name)) return;
+    const v = parseInt(q.get(name), 10);
+    if (isNaN(v)) return;
+    cfg[key] = Math.min(max, Math.max(min, v));
+    touched = true;
+  };
+  num("minutes", "minutes", 1, 180);
+  num("rounds",  "rounds",  1, 20);
+  num("inhale",  "inhale",  2, 15);
+  num("hold",    "hold",    0, 30);
+  num("exhale",  "exhale",  2, 30);
+
+  if (q.has("auto")) {
+    const raw = String(q.get("auto")).toLowerCase();
+    cfg.auto = !(raw === "0" || raw === "false" || raw === "no");
+    touched = true;
+  }
+  if (q.has("scheme")) { cfg.scheme = String(q.get("scheme")); touched = true; }
+  else if (q.has("app")) {
+    const s = APP_SCHEMES[String(q.get("app")).toLowerCase()];
+    if (s) { cfg.scheme = s; touched = true; }
+  }
+  if (touched) saveCfg();
+  return touched;
+}
+
+/* =========================================================
+   DOM 小工具
+   ========================================================= */
+const $ = (id) => document.getElementById(id);
+const fmtClock = (sec) => {
+  sec = Math.max(0, Math.round(sec));
+  const m = Math.floor(sec / 60), s = sec % 60;
+  return m + ":" + String(s).padStart(2, "0");
+};
+const totalRoundSec = () => cfg.inhale + cfg.hold + cfg.exhale;
+const totalSessionSec = () => totalRoundSec() * cfg.rounds;
+
+let SCREENS = [];
+function show(id) {
+  SCREENS.forEach((el) => el.classList.toggle("on", el.id === id));
+  document.body.className = "";
+  window.scrollTo(0, 0);
+}
+
+/* =========================================================
+   音效 / 震动
+   ========================================================= */
+let audioCtx = null;
+function beep(freq, dur, vol) {
+  if (!cfg.sound) return;
+  try {
+    if (!audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      audioCtx = new AC();
+    }
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = "sine";
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+    g.gain.linearRampToValueAtTime(vol, audioCtx.currentTime + 0.04);
+    g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime + dur + 0.02);
+  } catch (e) {}
+}
+function buzz(ms) {
+  if (!cfg.sound) return;
+  try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {}
+}
+
+/* =========================================================
+   屏幕常亮
+   ========================================================= */
+let wakeLock = null;
+async function keepAwake(on) {
+  try {
+    if (on) {
+      if (!wakeLock && "wakeLock" in navigator && document.visibilityState === "visible") {
+        wakeLock = await navigator.wakeLock.request("screen");
+        wakeLock.addEventListener("release", () => { wakeLock = null; });
+      }
+    } else if (wakeLock) {
+      await wakeLock.release(); wakeLock = null;
+    }
+  } catch (e) { wakeLock = null; }
+}
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    if (breath.running) keepAwake(true);
+  } else {
+    // 页面被切走时把倒计时终点落盘，防止 Safari 回收页面后丢失进度
+    if (countdownEnd && countdownEnd > Date.now()) {
+      store.set(KEY_NEXT, { at: countdownEnd });
+    }
+  }
+});
+
+/* =========================================================
+   呼吸引擎
+   ========================================================= */
+const breath = {
+  running: false,
+  rafId: 0,
+  round: 0,
+  phaseIdx: 0,
+  phaseStart: 0,
+  phases: [],
+  countdownId: 0,
+  onDone: null
+};
+
+function buildPhases() {
+  const p = [{ key: "inhale", name: "吸气", sec: cfg.inhale }];
+  if (cfg.hold > 0) p.push({ key: "hold", name: "屏住", sec: cfg.hold });
+  p.push({ key: "exhale", name: "呼气", sec: cfg.exhale });
+  return p;
+}
+
+function breathTick() {
+  if (!breath.running) return;
+  const now = performance.now();
+  const ph = breath.phases[breath.phaseIdx];
+  const elapsed = (now - breath.phaseStart) / 1000;
+  const remain = ph.sec - elapsed;
+
+  if (remain <= 0) {
+    breath.phaseIdx++;
+    if (breath.phaseIdx >= breath.phases.length) {
+      breath.phaseIdx = 0;
+      breath.round++;
+      if (breath.round >= cfg.rounds) { finishBreath(); return; }
+    }
+    startPhase();
+    return;
+  }
+
+  // 圆环进度
+  const frac = Math.min(1, elapsed / ph.sec);
+  const C = 282.74;
+  $("bar").style.strokeDashoffset = String(C * (1 - frac));
+
+  // 圆心数字
+  const num = Math.ceil(remain);
+  if ($("phaseNum").textContent !== String(num)) $("phaseNum").textContent = String(num);
+
+  // 圆圈缩放：吸气放大 / 屏住保持 / 呼气缩小
+  let scale;
+  if (ph.key === "inhale") scale = 0.62 + 0.5 * frac;
+  else if (ph.key === "hold") scale = 1.12;
+  else scale = 1.12 - 0.5 * frac;
+
+  const dur = ph.key === "hold" ? 0.35 : ph.sec;
+  const disc = $("disc");
+  disc.style.transition = "transform " + dur + "s cubic-bezier(.4,0,.5,1)";
+  disc.style.transform = "scale(" + scale.toFixed(4) + ")";
+  $("halo").style.opacity = String(0.32 + 0.42 * frac);
+  $("halo").style.transform = "scale(" + (0.86 + 0.34 * frac).toFixed(3) + ")";
+
+  breath.rafId = requestAnimationFrame(breathTick);
+}
+
+function startPhase() {
+  const ph = breath.phases[breath.phaseIdx];
+  $("phaseName").textContent = ph.name;
+  $("phaseNum").textContent = String(Math.ceil(ph.sec));
+  document.body.className = "phase-" + ph.key;
+  $("roundLabel").textContent = "第 " + Math.min(breath.round + 1, cfg.rounds) + " 轮 / 共 " + cfg.rounds + " 轮";
+
+  // 每个阶段重新计时，进度环必须归零（否则会带上一阶段残留的进度）
+  const bar = $("bar");
+  bar.style.transition = "none";
+  bar.style.strokeDashoffset = "282.74";
+  void bar.getBoundingClientRect();
+  bar.style.transition = "stroke-dashoffset .25s linear";
+
+  // 节奏提示音
+  if (ph.key === "inhale") { beep(528, 0.5, 0.10); buzz(25); }
+  else if (ph.key === "hold") { beep(396, 0.35, 0.07); }
+  else { beep(352, 0.6, 0.10); buzz(25); }
+
+  breath.phaseStart = performance.now();
+  cancelAnimationFrame(breath.rafId);
+  breath.rafId = requestAnimationFrame(breathTick);
+}
+
+function startBreath(onDone) {
+  breath.running = true;
+  breath.phases = buildPhases();
+  breath.round = 0;
+  breath.phaseIdx = 0;
+  breath.onDone = onDone;
+  keepAwake(true);
+  show("s-breath");
+  // 起始倒计时 3-2-1
+  let n = 3;
+  $("phaseName").textContent = "准备";
+  $("phaseNum").textContent = String(n);
+  $("bar").style.transition = "none";
+  $("bar").style.strokeDashoffset = "282.74";
+  $("disc").style.transform = "scale(.84)";
+  $("roundLabel").textContent = "第 1 轮 / 共 " + cfg.rounds + " 轮";
+  $("breathHint").textContent = "跟着圆圈的大小呼吸";
+  clearInterval(breath.countdownId);
+  breath.countdownId = setInterval(() => {
+    n--;
+    if (n > 0) { $("phaseNum").textContent = String(n); beep(440, 0.12, 0.06); }
+    else { clearInterval(breath.countdownId); startPhase(); }
+  }, 900);
+}
+
+function finishBreath() {
+  breath.running = false;
+  cancelAnimationFrame(breath.rafId);
+  clearInterval(breath.countdownId);
+  keepAwake(false);
+  beep(660, 0.7, 0.12);
+  buzz(120);
+  const cb = breath.onDone;
+  breath.onDone = null;
+  if (cb) cb();
+}
+
+function abortBreath() {
+  breath.running = false;
+  cancelAnimationFrame(breath.rafId);
+  clearInterval(breath.countdownId);
+  keepAwake(false);
+}
+
+/* =========================================================
+   询问 / 倒计时
+   ========================================================= */
+let countdownTimer = 0;
+let countdownEnd = 0;
+
+function gotoAsk() {
+  stat.sessions++; saveStat();
+  $("askKicker").textContent = "呼吸完成 · 共 " + totalSessionSec() + " 秒";
+  $("askTitle").textContent = "现在还想用它吗？";
+  $("askSub").textContent = "刚才那阵「必须马上打开」的冲动，可能已经过去了一点。";
+  $("askNote").textContent = cfg.scheme
+    ? "选择继续的话，我会在 " + cfg.minutes + " 分钟后叫你回来再呼吸一次。"
+    : "选择继续的话，我会在 " + cfg.minutes + " 分钟后叫你回来再呼吸一次。（未设置目标 App，需要你自己切回去）";
+  show("s-ask");
+
+  if (cfg.auto && cfg.scheme) {
+    setTimeout(() => { if ($("s-ask").classList.contains("on")) stay(); }, 5000);
+  }
+}
+
+function stay() {
+  stat.continues++; saveStat();
+  requestNotifyPermission();
+  startCountdown(cfg.minutes * 60);
+  scheduleFallbackNotify(cfg.minutes * 60);
+}
+
+function startCountdown(totalSec) {
+  clearInterval(countdownTimer);
+  countdownEnd = Date.now() + totalSec * 1000;
+  const total = totalSec;
+  $("countFoot").textContent = "到点后请回到这个页面，再做一次呼吸。";
+  $("btnOpenTarget").style.display = cfg.scheme ? "block" : "none";
+  show("s-count");
+
+  const paint = () => {
+    const left = Math.max(0, (countdownEnd - Date.now()) / 1000);
+    $("countTime").textContent = fmtClock(left);
+    $("countBar").style.width = (100 * (1 - left / total)).toFixed(1) + "%";
+    document.title = left > 0 ? fmtClock(left) + " · 先呼吸" : "该呼吸了 · 先呼吸";
+    if (left <= 0) {
+      clearInterval(countdownTimer);
+      onTimeUp();
+    }
+  };
+  paint();
+  countdownTimer = setInterval(paint, 1000);
+  store.set(KEY_NEXT, { at: countdownEnd });
+}
+
+function onTimeUp() {
+  keepAwake(true);
+  beep(784, 0.6, 0.14); setTimeout(() => beep(784, 0.6, 0.14), 750);
+  buzz([120, 80, 120]);
+  try {
+    if (window.Notification && Notification.permission === "granted") {
+      new Notification("该再呼吸一次了", {
+        body: "你已经用了 " + cfg.minutes + " 分钟。回来做一次呼吸。",
+        tag: "breath-due"
+      });
+    }
+  } catch (e) {}
+  gotoAsk();
+}
+
+/* 页面关掉后靠系统通知兜底 */
+function scheduleFallbackNotify(delaySec) {
+  try {
+    if (!window.Notification || Notification.permission !== "granted") return;
+    if (delaySec > 60) return; // 前台计时更准，长延时交给 iOS 快捷指令的计时器
+    setTimeout(() => {
+      if (document.visibilityState !== "visible") {
+        new Notification("该再呼吸一次了", { body: "回来做一次呼吸。", tag: "breath-due" });
+      }
+    }, delaySec * 1000);
+  } catch (e) {}
+}
+
+function requestNotifyPermission() {
+  try {
+    if (window.Notification && Notification.permission === "default") Notification.requestPermission();
+  } catch (e) {}
+}
+
+function gotoExit() {
+  stat.exits++; saveStat();
+  abortCountdown();
+  keepAwake(false);
+  $("statExit").textContent = String(stat.exits);
+  $("statSession").textContent = String(stat.sessions);
+  $("exitSub").textContent = stat.exits <= 1
+    ? "你刚才赢了一次。这一下就是全部的意义。"
+    : "这是第 " + stat.exits + " 次了。这个数字在变大，就是有用的。";
+  $("exitTip").textContent = cfg.scheme
+    ? "现在直接回桌面，不要再去点那个 App。"
+    : "可以直接回桌面了。如果这个页面是自己弹出来的，划掉它就行。";
+  show("s-exit");
+  beep(587, 0.8, 0.10);
+}
+
+function abortCountdown() {
+  clearInterval(countdownTimer);
+  store.del(KEY_NEXT);
+  document.title = "先呼吸一下";
+}
+
+function openTarget() {
+  if (!cfg.scheme) return;
+  const url = cfg.scheme;
+  try { location.href = url; } catch (e) {}
+  setTimeout(() => { try { window.open(url, "_self"); } catch (e) {} }, 220);
+}
+
+/* =========================================================
+   设置界面绑定
+   ========================================================= */
+function renderSteppers() {
+  document.querySelectorAll(".stepper[data-key]").forEach((box) => {
+    const key = box.dataset.key;
+    const unit = key === "rounds" ? "轮" : (key === "minutes" ? "分" : "秒");
+    const val = box.querySelector(".val");
+    const num = cfg[key];
+    val.innerHTML = num + "<small>" + unit + "</small>";
+    const min = parseInt(box.dataset.min, 10);
+    const max = parseInt(box.dataset.max, 10);
+    box.querySelector('[data-d="-1"]').disabled = num <= min;
+    box.querySelector('[data-d="1"]').disabled = num >= max;
+    box.querySelectorAll("button").forEach((b) => { b.style.opacity = b.disabled ? ".3" : "1"; });
+  });
+}
+function renderPresetSeg() {
+  const cur = { inhale: cfg.inhale, hold: cfg.hold, exhale: cfg.exhale };
+  document.querySelectorAll("#segPreset button").forEach((b) => {
+    const p = PRESETS[b.dataset.preset];
+    const on = p.inhale === cur.inhale && p.hold === cur.hold && p.exhale === cur.exhale;
+    b.classList.toggle("on", on);
+  });
+}
+function renderSettings() {
+  renderSteppers();
+  renderPresetSeg();
+  $("inpScheme").value = cfg.scheme || "";
+  $("btnToggleAuto").textContent = cfg.auto ? "开" : "关";
+  $("btnToggleAuto").style.color = cfg.auto ? "var(--accent)" : "var(--dim)";
+  $("btnToggleSound").textContent = cfg.sound ? "开" : "关";
+  $("btnToggleSound").style.color = cfg.sound ? "var(--accent)" : "var(--dim)";
+  $("statAllSession").textContent = String(stat.sessions);
+  $("statAllExit").textContent = String(stat.exits);
+}
+function renderWelcome() {
+  $("welcomeRounds").textContent = String(cfg.rounds);
+  $("welcomeDur").textContent = String(totalSessionSec());
+}
+
+/* =========================================================
+   事件
+   ========================================================= */
+function bind() {
+
+  // 校准
+  $("btnCalibStart").addEventListener("click", () => {
+    cfg.calibrated = true; saveCfg();
+    startBreath(() => { gotoWelcome(); });
+  });
+  $("btnCalibSkip").addEventListener("click", () => {
+    cfg.calibrated = true; saveCfg();
+    gotoWelcome();
+  });
+
+  // 欢迎
+  $("btnStartBreath").addEventListener("click", () => {
+    startBreath(() => { gotoAsk(); });
+  });
+  $("btnSkipBreath").addEventListener("click", () => { gotoAsk(); });
+  $("btnOpenSettings").addEventListener("click", () => { renderSettings(); show("s-settings"); });
+
+  // 呼吸页
+  $("btnEndEarly").addEventListener("click", () => { abortBreath(); gotoAsk(); });
+
+  // 询问页
+  $("btnExit").addEventListener("click", gotoExit);
+  $("btnStay").addEventListener("click", stay);
+  $("btnOneMore").addEventListener("click", () => {
+    startBreath(() => { gotoAsk(); });
+  });
+
+  // 倒计时页
+  $("btnBackHome").addEventListener("click", () => { abortCountdown(); gotoWelcome(); });
+  $("btnOpenTarget").addEventListener("click", openTarget);
+  $("btnCountAgain").addEventListener("click", () => { gotoExit(); });
+
+  // 结束页
+  $("btnExitHome").addEventListener("click", () => {
+    try { window.close(); } catch (e) {}
+    setTimeout(() => { location.href = "about:blank"; }, 120);
+  });
+  $("btnExitSettings").addEventListener("click", () => { renderSettings(); show("s-settings"); });
+
+  // 设置
+  document.querySelectorAll(".stepper[data-key] button").forEach((b) => {
+    b.addEventListener("click", () => {
+      const box = b.closest(".stepper");
+      const key = box.dataset.key;
+      const min = parseInt(box.dataset.min, 10);
+      const max = parseInt(box.dataset.max, 10);
+      cfg[key] = Math.min(max, Math.max(min, cfg[key] + parseInt(b.dataset.d, 10)));
+      saveCfg(); renderSteppers(); renderPresetSeg(); renderWelcome();
+      beep(660, 0.05, 0.05);
+    });
+  });
+
+  document.querySelectorAll("#segPreset button").forEach((b) => {
+    b.addEventListener("click", () => {
+      const p = PRESETS[b.dataset.preset];
+      cfg.inhale = p.inhale; cfg.hold = p.hold; cfg.exhale = p.exhale;
+      saveCfg(); renderSteppers(); renderPresetSeg(); renderWelcome();
+      beep(540, 0.08, 0.06);
+    });
+  });
+
+  $("inpScheme").addEventListener("input", (e) => {
+    cfg.scheme = e.target.value.trim(); saveCfg();
+  });
+  document.querySelectorAll(".pill[data-fill]").forEach((p) => {
+    p.addEventListener("click", () => {
+      cfg.scheme = p.dataset.fill; saveCfg();
+      $("inpScheme").value = cfg.scheme;
+      beep(600, 0.06, 0.06);
+    });
+  });
+
+  $("btnToggleAuto").addEventListener("click", () => {
+    cfg.auto = !cfg.auto; saveCfg(); renderSettings();
+  });
+  $("btnToggleSound").addEventListener("click", () => {
+    cfg.sound = !cfg.sound; saveCfg(); renderSettings();
+    if (cfg.sound) beep(600, 0.08, 0.08);
+  });
+
+  $("btnSaveSettings").addEventListener("click", () => {
+    saveCfg(); renderWelcome();
+    beep(720, 0.12, 0.09);
+    gotoWelcome();
+  });
+  $("btnSettingsBack").addEventListener("click", () => { renderWelcome(); gotoWelcome(); });
+
+  $("btnResetStats").addEventListener("click", () => {
+    stat = { sessions: 0, exits: 0, continues: 0 };
+    saveStat(); renderSettings();
+  });
+
+  // 空格 / 回车 快捷键（电脑上调试用）
+  document.addEventListener("keydown", (e) => {
+    if (e.code === "Space") {
+      const on = (id) => $(id).classList.contains("on");
+      if (on("s-welcome")) { e.preventDefault(); $("btnStartBreath").click(); }
+      else if (on("s-ask")) { e.preventDefault(); $("btnExit").click(); }
+    }
+  });
+}
+
+/* =========================================================
+   测试钩子（唯一用途：让自动化测试不必真等 10 分钟）
+   ========================================================= */
+window.__breathTest = {
+  get cfg() { return cfg; },
+  get stat() { return stat; },
+  get screen() {
+    const el = SCREENS.filter((s) => s.classList.contains("on"))[0];
+    return el ? el.id : null;
+  },
+  get countdownLeft() { return Math.max(0, (countdownEnd - Date.now()) / 1000); },
+  /** 把当前倒计时提前到 N 秒后结束，用于验证"到点二次干预" */
+  jumpCountdown(sec) {
+    if (!countdownEnd) return false;
+    countdownEnd = Date.now() + Math.max(0, sec) * 1000;
+    store.set(KEY_NEXT, { at: countdownEnd });
+    return true;
+  },
+  resetAll() {
+    store.del(KEY_CFG); store.del(KEY_STAT); store.del(KEY_NEXT);
+    return true;
+  }
+};
+
+/* =========================================================
+   启动
+   ========================================================= */
+function gotoWelcome() {
+  renderWelcome();
+  // 只在本次载入的第一次进入时读 URL 参数，避免从设置页返回时标题被反复改写
+  const isShortcut = FIRST_LOAD ? applyUrlParams() : URL_MODE;
+  FIRST_LOAD = false;
+  if (isShortcut) {
+    $("welcomeTitle").textContent = "回来了";
+    $("welcomeSub").textContent = "你刚打开了那个 App。先做 " + cfg.rounds + " 轮呼吸，再决定要不要滑。";
+  } else {
+    $("welcomeTitle").textContent = "先呼吸一下";
+    $("welcomeSub").textContent = "在滑下去之前，给自己一分钟。";
+  }
+  $("welcomeFoot").textContent = cfg.scheme
+    ? "这一分钟是你自己留给自己的。"
+    : "提示：在设置里填入目标 App 的 URL Scheme，之后就能一键跳回去。";
+
+  // 如果上次离开时倒计时还没结束，直接接着算
+  const pending = store.get(KEY_NEXT, null);
+  if (pending && pending.at && pending.at > Date.now()) {
+    const left = Math.round((pending.at - Date.now()) / 1000);
+    if (left < cfg.minutes * 60 + 5) {
+      startCountdown(left);
+      return;
+    }
+  }
+  if (pending) store.del(KEY_NEXT);
+  show("s-welcome");
+}
+
+let FIRST_LOAD = true;
+let URL_MODE = false;
+
+function init() {
+  SCREENS = Array.prototype.slice.call(document.querySelectorAll(".screen"));
+  URL_MODE = applyUrlParams();
+  bind();
+  renderSettings();
+  renderWelcome();
+
+  if (!cfg.calibrated) show("s-calib");
+  else gotoWelcome();
+}
+
+init();
+
+})();
+</script>
+</body>
+</html>
