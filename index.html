@@ -227,48 +227,16 @@
   </defs>
 </svg>
 
-<!-- ================= 00 首次校准 ================= -->
-<section class="screen" id="s-calib">
-  <div class="spacer"></div>
-  <div class="kicker">开始之前</div>
-  <h1>先做一次校准</h1>
-  <p>为了让动画跟着你的呼吸走，请跟着下面这个节奏试一次。坐直，肩膀放松，用鼻子吸气。</p>
-  <div class="card center">
-    <div style="font-size:15px;color:var(--ink);line-height:2">
-      吸气 <b style="color:var(--accent)">4</b> 秒 → 屏住 <b style="color:var(--accent2)">4</b> 秒 → 呼气 <b style="color:var(--dim)">6</b> 秒
-    </div>
-    <p style="margin:10px 0 0;font-size:13.5px">这是偏温和的节奏，容易坚持。之后可以调。</p>
-  </div>
-  <div class="note">如果你有心脏、血压或呼吸系统疾病，或正处孕期，请先咨询医生再练习屏息类呼吸。</div>
-  <button class="btn" id="btnCalibStart">我开始，跟着做一次</button>
-  <button class="btn quiet" id="btnCalibSkip">跳过校准，直接进入</button>
-</section>
-
-<!-- ================= 01 欢迎 ================= -->
-<section class="screen" id="s-welcome">
-  <div class="topbar">
-    <span></span>
-    <button class="iconbtn" id="btnOpenSettings">设置</button>
-  </div>
-  <div class="spacer"></div>
-  <div class="ringlogo"><i></i></div>
-  <h1 id="welcomeTitle">先呼吸一下</h1>
-  <p id="welcomeSub">你刚刚打开了那个 App。在滑下去之前，给自己一分钟。</p>
-  <div class="card">
-    <div style="font-size:15px;line-height:1.9">
-      接下来是 <b id="welcomeRounds">2</b> 轮呼吸，大约 <b id="welcomeDur">30</b> 秒。
-    </div>
-  </div>
-  <button class="btn" id="btnStartBreath">开始</button>
-  <button class="btn quiet" id="btnSkipBreath">跳过，直接用</button>
-  <div class="sub" id="welcomeFoot">这一分钟是你自己留给自己的。</div>
-</section>
+<!-- 校准页与欢迎页已移除：打开即开始呼吸 -->
 
 <!-- ================= 02 呼吸 ================= -->
 <section class="screen" id="s-breath">
   <div class="topbar">
-    <span class="roundInfo" id="roundLabel">第 1 轮 / 共 2 轮</span>
-    <button class="iconbtn" id="btnEndEarly">提前结束</button>
+    <span class="roundInfo" id="roundLabel">第 1 轮 / 共 3 轮</span>
+    <span style="display:flex;gap:10px;align-items:center">
+      <button class="iconbtn" id="btnBreathSettings">设置</button>
+      <button class="iconbtn" id="btnEndEarly">提前结束</button>
+    </span>
   </div>
   <div class="breathWrap">
     <div class="circleBox">
@@ -306,7 +274,7 @@
 <section class="screen" id="s-count">
   <div class="topbar">
     <span class="kicker" style="margin:0">使用倒计时</span>
-    <button class="iconbtn" id="btnBackHome">回到首页</button>
+    <button class="iconbtn" id="btnBackHome">重新呼吸</button>
   </div>
   <div class="spacer"></div>
   <div class="center">
@@ -460,9 +428,8 @@ const PRESETS = {
   box:      { inhale: 4, hold: 4, exhale: 4, hold2: 4 }
 };
 const DEFAULTS = {
-  inhale: 4, hold: 4, exhale: 6, rounds: 2,
-  minutes: 10, scheme: "", auto: false, sound: true,
-  calibrated: false
+  inhale: 4, hold: 4, exhale: 6, rounds: 3,
+  minutes: 30, scheme: "", auto: false, sound: true
 };
 const KEY_CFG = "breath.cfg.v1";
 const KEY_STAT = "breath.stat.v1";
@@ -481,6 +448,11 @@ const store = {
 };
 
 let cfg = Object.assign({}, DEFAULTS, store.get(KEY_CFG, {}));
+
+// 默认「继续使用时长」从 10 分钟改为 30 分钟。老配置里仍是旧默认值的，升级过来，
+// 免得你以为改了却没生效（自己调过数值的不动）。
+if (cfg.minutes === 10) cfg.minutes = 30;
+
 let stat = Object.assign({ sessions: 0, exits: 0, continues: 0 }, store.get(KEY_STAT, {}));
 
 function saveCfg() { store.set(KEY_CFG, cfg); }
@@ -883,35 +855,14 @@ function renderSettings() {
   $("statAllSession").textContent = String(stat.sessions);
   $("statAllExit").textContent = String(stat.exits);
 }
-function renderWelcome() {
-  $("welcomeRounds").textContent = String(cfg.rounds);
-  $("welcomeDur").textContent = String(totalSessionSec());
-}
-
 /* =========================================================
    事件
    ========================================================= */
 function bind() {
 
-  // 校准
-  $("btnCalibStart").addEventListener("click", () => {
-    cfg.calibrated = true; saveCfg();
-    startBreath(() => { gotoWelcome(); });
-  });
-  $("btnCalibSkip").addEventListener("click", () => {
-    cfg.calibrated = true; saveCfg();
-    gotoWelcome();
-  });
-
-  // 欢迎
-  $("btnStartBreath").addEventListener("click", () => {
-    startBreath(() => { gotoAsk(); });
-  });
-  $("btnSkipBreath").addEventListener("click", () => { gotoAsk(); });
-  $("btnOpenSettings").addEventListener("click", () => { renderSettings(); show("s-settings"); });
-
   // 呼吸页
   $("btnEndEarly").addEventListener("click", () => { abortBreath(); gotoAsk(); });
+  $("btnBreathSettings").addEventListener("click", () => { abortBreath(); openSettings(); });
 
   // 询问页
   $("btnExit").addEventListener("click", gotoExit);
@@ -921,7 +872,7 @@ function bind() {
   });
 
   // 倒计时页
-  $("btnBackHome").addEventListener("click", () => { abortCountdown(); gotoWelcome(); });
+  $("btnBackHome").addEventListener("click", () => { abortCountdown(); restartBreath(); });
   $("btnOpenTarget").addEventListener("click", openTarget);
   $("btnCountAgain").addEventListener("click", () => { gotoExit(); });
 
@@ -930,7 +881,7 @@ function bind() {
     try { window.close(); } catch (e) {}
     setTimeout(() => { location.href = "about:blank"; }, 120);
   });
-  $("btnExitSettings").addEventListener("click", () => { renderSettings(); show("s-settings"); });
+  $("btnExitSettings").addEventListener("click", () => { openSettings(); });
 
   // 设置
   document.querySelectorAll(".stepper[data-key] button").forEach((b) => {
@@ -940,7 +891,7 @@ function bind() {
       const min = parseInt(box.dataset.min, 10);
       const max = parseInt(box.dataset.max, 10);
       cfg[key] = Math.min(max, Math.max(min, cfg[key] + parseInt(b.dataset.d, 10)));
-      saveCfg(); renderSteppers(); renderPresetSeg(); renderWelcome();
+      saveCfg(); renderSteppers(); renderPresetSeg();
       beep(660, 0.05, 0.05);
     });
   });
@@ -949,7 +900,7 @@ function bind() {
     b.addEventListener("click", () => {
       const p = PRESETS[b.dataset.preset];
       cfg.inhale = p.inhale; cfg.hold = p.hold; cfg.exhale = p.exhale;
-      saveCfg(); renderSteppers(); renderPresetSeg(); renderWelcome();
+      saveCfg(); renderSteppers(); renderPresetSeg();
       beep(540, 0.08, 0.06);
     });
   });
@@ -974,23 +925,22 @@ function bind() {
   });
 
   $("btnSaveSettings").addEventListener("click", () => {
-    saveCfg(); renderWelcome();
+    saveCfg();
     beep(720, 0.12, 0.09);
-    gotoWelcome();
+    leaveSettings();
   });
-  $("btnSettingsBack").addEventListener("click", () => { renderWelcome(); gotoWelcome(); });
+  $("btnSettingsBack").addEventListener("click", () => { leaveSettings(); });
 
   $("btnResetStats").addEventListener("click", () => {
     stat = { sessions: 0, exits: 0, continues: 0 };
     saveStat(); renderSettings();
   });
 
-  // 空格 / 回车 快捷键（电脑上调试用）
+  // 空格快捷键（电脑上调试用）：在询问页按空格 = 选择"不想了"
   document.addEventListener("keydown", (e) => {
-    if (e.code === "Space") {
-      const on = (id) => $(id).classList.contains("on");
-      if (on("s-welcome")) { e.preventDefault(); $("btnStartBreath").click(); }
-      else if (on("s-ask")) { e.preventDefault(); $("btnExit").click(); }
+    if (e.code === "Space" && $("s-ask").classList.contains("on")) {
+      e.preventDefault();
+      $("btnExit").click();
     }
   });
 }
@@ -1020,49 +970,46 @@ window.__breathTest = {
 };
 
 /* =========================================================
-   启动
+   启动 / 页面流转
    ========================================================= */
-function gotoWelcome() {
-  renderWelcome();
-  // 只在本次载入的第一次进入时读 URL 参数，避免从设置页返回时标题被反复改写
-  const isShortcut = FIRST_LOAD ? applyUrlParams() : URL_MODE;
-  FIRST_LOAD = false;
-  if (isShortcut) {
-    $("welcomeTitle").textContent = "回来了";
-    $("welcomeSub").textContent = "你刚打开了那个 App。先做 " + cfg.rounds + " 轮呼吸，再决定要不要滑。";
-  } else {
-    $("welcomeTitle").textContent = "先呼吸一下";
-    $("welcomeSub").textContent = "在滑下去之前，给自己一分钟。";
-  }
-  $("welcomeFoot").textContent = cfg.scheme
-    ? "这一分钟是你自己留给自己的。"
-    : "提示：在设置里填入目标 App 的 URL Scheme，之后就能一键跳回去。";
+let settingsFrom = "s-exit";
 
-  // 如果上次离开时倒计时还没结束，直接接着算
+/** 开始一轮呼吸，结束后自动进入询问页 */
+function restartBreath() {
+  startBreath(() => { gotoAsk(); });
+}
+
+/** 打开设置，记住是从哪进来的，返回时回到原处 */
+function openSettings() {
+  const cur = SCREENS.filter((s) => s.classList.contains("on"))[0];
+  settingsFrom = cur && cur.id === "s-count" ? "s-count" : "s-exit";
+  renderSettings();
+  show("s-settings");
+}
+
+function leaveSettings() {
+  if (settingsFrom === "s-count" && countdownEnd > Date.now()) show("s-count");
+  else show("s-exit");
+}
+
+/** 入口：打开就呼吸。只有上次的倒计时还没走完时才先接着算 */
+function enterApp() {
   const pending = store.get(KEY_NEXT, null);
   if (pending && pending.at && pending.at > Date.now()) {
     const left = Math.round((pending.at - Date.now()) / 1000);
-    if (left < cfg.minutes * 60 + 5) {
-      startCountdown(left);
-      return;
-    }
+    // 只接受合理范围内的残留，避免上次异常退出留下一个巨大的数字
+    if (left < cfg.minutes * 60 + 5) { startCountdown(left); return; }
   }
   if (pending) store.del(KEY_NEXT);
-  show("s-welcome");
+  restartBreath();
 }
-
-let FIRST_LOAD = true;
-let URL_MODE = false;
 
 function init() {
   SCREENS = Array.prototype.slice.call(document.querySelectorAll(".screen"));
-  URL_MODE = applyUrlParams();
+  applyUrlParams();
   bind();
   renderSettings();
-  renderWelcome();
-
-  if (!cfg.calibrated) show("s-calib");
-  else gotoWelcome();
+  enterApp();
 }
 
 init();
