@@ -359,10 +359,10 @@
     <div class="row">
       <label>目标 App 的 URL Scheme<span class="hint">选填。填了才能一键跳回去</span></label>
     </div>
-    <input type="text" id="inpScheme" placeholder="snssdk1128://  （抖音）" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <input type="text" id="inpScheme" placeholder="xhsdiscover://  （小红书）" autocapitalize="off" autocorrect="off" spellcheck="false">
     <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
-      <span class="pill" data-fill="snssdk1128://">抖音</span>
       <span class="pill" data-fill="xhsdiscover://">小红书</span>
+      <span class="pill" data-fill="snssdk1128://">抖音</span>
       <span class="pill" data-fill="bilibili://">B站</span>
       <span class="pill" data-fill="weibo://">微博</span>
       <span class="pill" data-fill="zhihu://">知乎</span>
@@ -371,7 +371,29 @@
 
   <div class="card">
     <div class="row">
-      <label>完成呼吸后自动跳回 App<span class="hint">关闭则停在询问页</span></label>
+      <label>选「继续用」之后<span class="hint">自动跳回 App 会再次触发自动化，必须配合下面的冷却</span></label>
+    </div>
+    <select id="selReturn" style="width:100%">
+      <option value="stay">立刻跳回目标 App（最顺手）</option>
+      <option value="ask">停在倒计时页，我自己点「打开 App」</option>
+      <option value="none">停在倒计时页，不提供跳转按钮</option>
+    </select>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <label>「回桌面」用的 scheme<span class="hint">选填。填 shortcuts:// 可真正退回桌面</span></label>
+    </div>
+    <input type="text" id="inpHome" placeholder="shortcuts://" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <p style="font-size:12.5px;margin:12px 0 0">
+      网页无法关闭自己，所以"回桌面"只能靠一个能跳出浏览器的 scheme。
+      填 <code style="color:var(--accent)">shortcuts://</code> 会跳到快捷指令 App，等于离开了浏览器。
+    </p>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <label>呼吸完自动选「继续用」<span class="hint">5 秒后自动继续，不问你</span></label>
       <div class="stepper" style="border:0;background:transparent">
         <button id="btnToggleAuto" style="width:64px">关</button>
       </div>
@@ -389,10 +411,9 @@
       <label>URL 参数<span class="hint">让快捷指令每次进入时覆盖设置</span></label>
     </div>
     <input type="text" id="inpExample" readonly
-           value="?minutes=5&rounds=3&inhale=4&hold=7&exhale=8&auto=0&rounds=3">
+           value="?app=xhs&minutes=30&rounds=3&returnAfter=stay">
     <p style="font-size:12.5px;margin:12px 0 0">
-      示例：<code style="color:var(--accent)">breath.html?minutes=5&amp;rounds=3</code><br>
-      支持 minutes / rounds / inhale / hold / exhale / auto / scheme / app
+      支持 minutes / rounds / inhale / hold / exhale / auto / returnAfter / scheme / app
     </p>
   </div>
 
@@ -429,7 +450,8 @@ const PRESETS = {
 };
 const DEFAULTS = {
   inhale: 4, hold: 4, exhale: 6, rounds: 3,
-  minutes: 30, scheme: "", auto: false, sound: true
+  minutes: 30, scheme: "", home: "", auto: false,
+  returnAfter: "stay", sound: true
 };
 const KEY_CFG = "breath.cfg.v1";
 const KEY_STAT = "breath.stat.v1";
@@ -494,6 +516,13 @@ function applyUrlParams() {
     const s = APP_SCHEMES[String(q.get("app")).toLowerCase()];
     if (s) { cfg.scheme = s; touched = true; }
   }
+
+  // returnAfter：呼吸结束后是否自动跳回目标 App（stay / ask / minutes）
+  if (q.has("returnAfter")) {
+    const v = String(q.get("returnAfter")).toLowerCase();
+    if (["stay", "ask", "minutes", "none"].indexOf(v) >= 0) { cfg.returnAfter = v; touched = true; }
+  }
+
   if (touched) saveCfg();
   return touched;
 }
@@ -706,6 +735,44 @@ function abortBreath() {
 }
 
 /* =========================================================
+   跳转回目标 App / 回桌面
+   ========================================================= */
+let jumpTimer = 0;
+let lastJumpUrl = "";
+
+/**
+ * 用 URL scheme 跳走。
+ * 关键背景：这个跳转会再次触发"打开 App"的快捷指令自动化，
+ * 所以自动化那边必须配一个时间戳标志文件来识别"这是我自己跳回来的，不要再拦"。
+ * 页面这边只负责跳，拦不拦是自动化的事。
+ */
+function jumpTo(url) {
+  if (!url) return false;
+  lastJumpUrl = url;
+  try { location.href = url; } catch (e) {}
+  setTimeout(() => { try { window.open(url, "_self"); } catch (e) {} }, 220);
+  return true;
+}
+
+/** 跳回目标 App（未配置 scheme 则返回 false） */
+function returnToTarget() {
+  return jumpTo(cfg.scheme);
+}
+
+/** 回桌面：优先用快捷指令的 scheme，失败则尽量关掉自己 */
+function returnToHome() {
+  if (cfg.home && jumpTo(cfg.home)) return true;
+  try { window.close(); } catch (e) {}
+  setTimeout(() => { try { location.href = "about:blank"; } catch (e) {} }, 150);
+  return false;
+}
+
+function cancelJump() {
+  clearTimeout(jumpTimer);
+  jumpTimer = 0;
+}
+
+/* =========================================================
    询问 / 倒计时
    ========================================================= */
 let countdownTimer = 0;
@@ -713,6 +780,7 @@ let countdownEnd = 0;
 
 function gotoAsk() {
   stat.sessions++; saveStat();
+  cancelJump();
   $("askKicker").textContent = "呼吸完成 · 共 " + totalSessionSec() + " 秒";
   $("askTitle").textContent = "现在还想用它吗？";
   $("askSub").textContent = "刚才那阵「必须马上打开」的冲动，可能已经过去了一点。";
@@ -731,6 +799,10 @@ function stay() {
   requestNotifyPermission();
   startCountdown(cfg.minutes * 60);
   scheduleFallbackNotify(cfg.minutes * 60);
+  // returnAfter=stay：选完"继续"就跳回目标 App，不用再点一次
+  if (cfg.returnAfter === "stay" && cfg.scheme) {
+    jumpTimer = setTimeout(() => { returnToTarget(); }, 1400);
+  }
 }
 
 function startCountdown(totalSec) {
@@ -793,6 +865,7 @@ function requestNotifyPermission() {
 function gotoExit() {
   stat.exits++; saveStat();
   abortCountdown();
+  cancelJump();
   keepAwake(false);
   $("statExit").textContent = String(stat.exits);
   $("statSession").textContent = String(stat.sessions);
@@ -808,15 +881,13 @@ function gotoExit() {
 
 function abortCountdown() {
   clearInterval(countdownTimer);
+  cancelJump();
   store.del(KEY_NEXT);
   document.title = "先呼吸一下";
 }
 
 function openTarget() {
-  if (!cfg.scheme) return;
-  const url = cfg.scheme;
-  try { location.href = url; } catch (e) {}
-  setTimeout(() => { try { window.open(url, "_self"); } catch (e) {} }, 220);
+  returnToTarget();
 }
 
 /* =========================================================
@@ -848,6 +919,8 @@ function renderSettings() {
   renderSteppers();
   renderPresetSeg();
   $("inpScheme").value = cfg.scheme || "";
+  $("inpHome").value = cfg.home || "";
+  $("selReturn").value = cfg.returnAfter;
   $("btnToggleAuto").textContent = cfg.auto ? "开" : "关";
   $("btnToggleAuto").style.color = cfg.auto ? "var(--accent)" : "var(--dim)";
   $("btnToggleSound").textContent = cfg.sound ? "开" : "关";
@@ -877,10 +950,7 @@ function bind() {
   $("btnCountAgain").addEventListener("click", () => { gotoExit(); });
 
   // 结束页
-  $("btnExitHome").addEventListener("click", () => {
-    try { window.close(); } catch (e) {}
-    setTimeout(() => { location.href = "about:blank"; }, 120);
-  });
+  $("btnExitHome").addEventListener("click", () => { returnToHome(); });
   $("btnExitSettings").addEventListener("click", () => { openSettings(); });
 
   // 设置
@@ -907,6 +977,12 @@ function bind() {
 
   $("inpScheme").addEventListener("input", (e) => {
     cfg.scheme = e.target.value.trim(); saveCfg();
+  });
+  $("inpHome").addEventListener("input", (e) => {
+    cfg.home = e.target.value.trim(); saveCfg();
+  });
+  $("selReturn").addEventListener("change", (e) => {
+    cfg.returnAfter = e.target.value; saveCfg();
   });
   document.querySelectorAll(".pill[data-fill]").forEach((p) => {
     p.addEventListener("click", () => {
@@ -956,6 +1032,9 @@ window.__breathTest = {
     return el ? el.id : null;
   },
   get countdownLeft() { return Math.max(0, (countdownEnd - Date.now()) / 1000); },
+  /** 记录最近的跳转目标，方便自动化测试断言"会不会跳、跳去哪" */
+  get lastJump() { return lastJumpUrl; },
+  get hasPendingJump() { return !!jumpTimer; },
   /** 把当前倒计时提前到 N 秒后结束，用于验证"到点二次干预" */
   jumpCountdown(sec) {
     if (!countdownEnd) return false;
